@@ -18,7 +18,16 @@ class	Ramp_Data_Process{
 
 	public:
 		vector<Data_Under_Given_Input> Ramp_Datas;	// this is all the magic datas
-			
+		// This is used to add the data into the Ramp_Datas 
+		void add_New_Data(Data_Under_Given_Input data);
+		
+		// Get the voltage boundary of MADC. The result may sit between two adjacent input voltages
+		// This is done by fitting with the error function!
+		// By doing this, we can also get the sigma of the MADC, we store it into the MADC_Sigma[64]
+		// We can also use this result to calculate the DNL of the MADC, refer to MADC_DNL_by_Binsize[64]
+		// Certainly, we can calculate the DNL by count, which is stored into MADC_DNL_by_Count[64]
+		int	MADC_Min;		// minimum MADC value store in the database
+		int	MADC_Max;		
 		double	MADC_Boundary[64];	// up boundary
 		double	MADC_Sigma[64];		// noise of the boundary
 		double	MADC_DNL_by_Binsize[64];	// DNL by the boundary and binsize
@@ -27,18 +36,12 @@ class	Ramp_Data_Process{
 		double	MADC_INL_by_Count[64];
 		double	MADC_LSB;
 
-		// This is used to add the data into the Ramp_Datas 
-		void add_New_Data(Data_Under_Given_Input data);
-
-		// Get the voltage boundary of MADC. The result may sit between two adjacent input voltages
-		// This is done by fitting with the error function!
-		// By doing this, we can also get the sigma of the MADC, we store it into the MADC_Sigma[64]
-		// We can also use this result to calculate the DNL of the MADC, refer to MADC_DNL_by_Binsize[64]
-		// Certainly, we can calculate the DNL by count, which is stored into MADC_DNL_by_Count[64]
+		void get_MADC_Min_and_Max();
 		void get_MADC_Boudary();
 		void get_MADC_DNL_INL_by_Binsize();
 		void get_MADC_DNL_INL_by_Count();
-
+		void get_MADC_Info();
+		void get_MADC_Cap_Info();
 
 };
 
@@ -46,12 +49,18 @@ void Ramp_Data_Process::add_New_Data(Data_Under_Given_Input data){
 	Ramp_Datas.push_back(data);
 }
 
+void Ramp_Data_Process::get_MADC_Min_and_Max(){
+	// we assume the all the data was obtained ascending or descending
+	MADC_Min = Ramp_Datas[0].M_value[0];
+	MADC_Max = Ramp_Datas[Ramp_Datas.size()-1].M_value[0];
+}
+
 void Ramp_Data_Process::get_MADC_Boudary(){
 	double vi;	// current data's Vi
 	for(int i=0;i<64;i++) MADC_Boundary[i] = 0.;
 	TF1 func("f","0.5*(1+TMath::Erf(-(x-[0])/[1]))");	// fit function
 	//for(int madc=11;madc>=2;madc--){
-	for(int madc=0;madc<63;madc++){
+	for(int madc=MADC_Min;madc<MADC_Max;madc++){
 		TGraph* gr_scurve = new TGraph();		// fit graph
 		double x1=2000,x2=-2000;			// sepecify the fit boundary
 		int num=0;					// numbers of the events gets
@@ -84,14 +93,18 @@ void Ramp_Data_Process::get_MADC_Boudary(){
 void Ramp_Data_Process::get_MADC_DNL_INL_by_Binsize(){
 	double binsize[64];
 	double LSB;
-	for(int i=1;i<63;i++){
+	for(int i=MADC_Min+1;i<MADC_Max;i++){
 		binsize[i] = MADC_Boundary[i] - MADC_Boundary[i-1];
 		LSB += binsize[i];
 	}
-	LSB = 1.0*LSB/62;
+	if(MADC_Max - ADC_Min == 1) {cout<<"Error: Too less boundary to get a binsize. You are supposed to take more data!"<<endl;return;}
+	LSB = 1.0*LSB/(MADC_Max-MADC_Min-1);
 	MADC_LSB = LSB;		// get the MADC_LSB
 	// get the MADC_DNL_by_Binsize and MADC_INL_by_Binsize
-	binsize[0] = LSB; binsize[63] = LSB;
+	// The DNL of MADC without any datas are set to 0
+	for(int i=0;i<=MADC_Min;i++) binsize[i] = LSB;
+	for(int i=MADC_Max;i<64;i++) binsize[i] = LSB;
+
 	for(int i=0;i<64;i++) MADC_DNL_by_Binsize[i] = 1.0*binsize[i]/LSB - 1.0;
 	MADC_INL_by_Binsize[0] = 0.0;
 	for(int i=1;i<64;i++) MADC_INL_by_Binsize[i] = MADC_INL_by_Binsize[i-1] + MADC_DNL_by_Binsize[i-1];
@@ -100,20 +113,37 @@ void Ramp_Data_Process::get_MADC_DNL_INL_by_Binsize(){
 void Ramp_Data_Process::get_MADC_DNL_INL_by_Count(){
 	double count[64];
 	for(unsigned int i=0;i<64;i++) count[i]=0.0;
+
 	for(unsigned int i=0;i<Ramp_Datas.size();i++){
 		count[Ramp_Datas[i].M_value[0]] += Ramp_Datas[i].M_rates[0]*Ramp_Datas[i].Counts;
 		count[Ramp_Datas[i].M_value[1]] += Ramp_Datas[i].M_rates[1]*Ramp_Datas[i].Counts;
 	}
 	double count_sum = 0.0;
-	for(unsigned int i=1;i<63;i++) count_sum += count[i];
-	double ave_sum = count_sum/62;
-	count[0] = ave_sum; count[63] = ave_sum;
+	for(unsigned int i=MADC_Min+1;i<MADC_Max;i++) count_sum += count[i];
+	if(MADC_Max - ADC_Min == 1) {cout<<"Error: Too less boundary to get a binsize. You are supposed to take more data!"<<endl;return;}
+	double ave_sum = 1.0*count_sum/(MADC_Max-MADC_Min-1);
+	
+	// set the undedermined MADC count to be average to give a 0 DNL
+	for(int i=0;i<=MADC_Min;i++) count[i] = ave_sum;
+	for(int i=MADC_Max;i<64;i++) count[i] = ave_sum;
+
 	for(unsigned int i=0;i<64;i++) MADC_DNL_by_Count[i] = 1.0*count[i]/ave_sum - 1.0;
 	MADC_INL_by_Count[0] = 0.0;
 	for(unsigned int i=1;i<64;i++) MADC_INL_by_Count[i] = MADC_INL_by_Count[i-1] + MADC_DNL_by_Count[i-1];
 
 }
 
+void Ramp_Data_Process::get_MADC_Info(){
+	get_MADC_Min_and_Max();
+	get_MADC_Boudary();
+	get_MADC_DNL_INL_by_Binsize();
+	get_MADC_DNL_INL_by_Count();
+	get_MADC_Cap_Info();
+}
+
+void Ramp_Data_Process::get_MADC_Cap_Info(){
+	// TODO: From the DNL result to calculate the capacitor mismatches
+}
 
 #endif
 
