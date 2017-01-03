@@ -37,6 +37,13 @@ class	Data_Under_Given_Input{
 		void read_Data(int madc, int ladc);
 		void process_Data();
 
+		vector<double> Dout;	// 
+		double Dout_mean;
+		double Dout_sigma;
+		void map_MADC_and_LADC_to_Dout(double step[64]);	// map the D0 and D1 to get Dout;
+		void get_Dout_Mean_and_Sigma();
+		void process_Dout(double acc_step[64]);
+
 	private:
 		void process_MADC();
 		void get_LADC_Mean_and_Sigma();
@@ -135,5 +142,40 @@ void Data_Under_Given_Input::get_LADC_Mean_and_Sigma(){
 	if(Counts*M_rates[1]>0){ get_Mean_and_Sigma_by_Cal(L2,par); L2_mean = par[1]; L2_sigma = par[2];}
 }
 
+void Data_Under_Given_Input::map_MADC_and_LADC_to_Dout(double acc_step[64]){
+	Dout.clear();
+	double dout;
+	for(int i=0;i<MADC.size();i++){
+		dout = acc_step[MADC[i]] + LADC[i];
+		Dout.push_back(dout);
+	}
+}
+
+void Data_Under_Given_Input::get_Dout_Mean_and_Sigma(){
+	int x1 = 5000, x2 = 0, num = 0;
+	double par[3];
+	TGraph* gr_fit = new TGraph();
+	for(int i=0;i<Dout.size();i++){
+		gr_fit->SetPoint(num,i,Dout[i]);
+		num++;
+		x1 = (x1<i)? x1:i;
+		x2 = (x1>i)? x2:i;
+	}
+	TF1 func("func","[0]*TMath::Gaus(x,[1],[2])");
+	func.SetRange(x1-2,x2+2);
+	func.SetParameters(num/8,(x1+x2)/2,8);
+	func.SetParLimits(1,(x1+x2)/2-8,(x1+x2)/2+8);
+	gr_fit->Fit(&func,"q");//"Q0");
+	func.GetParameters(par);
+	Dout_mean = par[1];
+	Dout_sigma = par[2];
+	gr_fit->Delete();
+	func.Delete();
+}
+
+void Data_Under_Given_Input::process_Dout(double step[64]){
+	map_MADC_and_LADC_to_Dout(step);
+	get_Dout_Mean_and_Sigma();
+}
 
 #endif

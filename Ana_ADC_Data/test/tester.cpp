@@ -15,7 +15,7 @@ void tester(){
 	Ramp_Data_Process tests;
 
 	ifstream fin;
-	fin.open("../data/noise_data.txt");
+	fin.open("../../ADC_Data/noise_data.txt");
 		
 	int num = 0;
 	double voltage, vres0, vres1;
@@ -37,7 +37,7 @@ void tester(){
 	fin.close();
 	
 	cout<<"Starting Processing the datas.....Take a deep breathe!"<<endl;
-	tests.get_MADC_Boudary();
+	tests.get_ADC_DNL_by_Count();
 }
 
 

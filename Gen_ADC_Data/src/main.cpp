@@ -57,13 +57,13 @@ int main(){
 	fout.open("../ADC_Data/noise_data.txt");
 
 	//int npoints = (int)(4*pow(2.0,Nbit0+Nbit1));
-	int npoints = 10*4096;
+	int npoints = 5000*5;
 	double vi;
 	int d[2];
 	double vres[2];
 	for(int i=-npoints;i<npoints;i++){
 		vi = 1.05*i/npoints;
-		for(int j=0;j<400;j++){
+		for(int j=0;j<200;j++){
 			ADC.gen_Code_with_Noise(vi,d,vres);
 			fout<<vi<<"\t"<<d[0]<<"\t"<<d[1]<<"\t"<<vres[0]<<"\t"<<vres[1]<<endl;
 		}
