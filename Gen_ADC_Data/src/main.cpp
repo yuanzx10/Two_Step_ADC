@@ -24,7 +24,7 @@ int main(){
 	double a[10]={0.05,0.05,-0.10,0.10,-0.10,0.10,0.10,0.05,-0.25};
 	vector<double> Cmis0(a,a+10);
 	
-	double b[10]={0.05,0.10,0.10,-0.05,-0.20,0.25,-0.25,0.35,-0.35};
+	double b[10]={0.05,0.10,0.10,-0.05,-0.20,0.15,-0.15,0.35,-0.35};
 	vector<double> Cmis1(b,b+10);
 
 	ADC.set_Cap_Mismatches(Cmis0,Cmis1);
@@ -54,7 +54,7 @@ int main(){
 	// Generate data into a txt file
 
 	ofstream fout;
-	fout.open("../ADC_Data/noise_data.txt");
+	fout.open("../data/noise_data.txt");
 
 	//int npoints = (int)(4*pow(2.0,Nbit0+Nbit1));
 	int npoints = 5000*5;
