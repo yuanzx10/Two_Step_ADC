@@ -15,7 +15,7 @@ void tester(){
 	Ramp_Data_Process tests;
 
 	ifstream fin;
-	fin.open("../../ADC_Data/noise_data.txt");
+	fin.open("../../data/noise_data.txt");
 		
 	int num = 0;
 	double voltage, vres0, vres1;
